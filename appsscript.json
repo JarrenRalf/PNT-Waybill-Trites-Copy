@@ -1,0 +1,43 @@
+{
+  "timeZone": "America/New_York",
+  "dependencies": {
+  },
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
+  "sheets": {
+    "macros": [{
+      "menuName": "saveCnee",
+      "functionName": "saveCnee"
+    }, {
+      "menuName": "Untitled Macro",
+      "functionName": "UntitledMacro"
+    }, {
+      "menuName": "transposedMacro",
+      "functionName": "transposedMacro"
+    }, {
+      "menuName": "sendToWaybill",
+      "functionName": "sendToWaybill"
+    }, {
+      "menuName": "11111",
+      "functionName": "_11111"
+    }, {
+      "menuName": "fillWaybill",
+      "functionName": "fillWaybill"
+    }, {
+      "menuName": "Untitled Macro 1",
+      "functionName": "UntitledMacro1"
+    }, {
+      "menuName": "Untitled Macro 2",
+      "functionName": "UntitledMacro2"
+    }, {
+      "menuName": "PRINT",
+      "functionName": "PRINT"
+    }, {
+      "menuName": "67678678",
+      "functionName": "_67678678"
+    }, {
+      "menuName": "resetPackingS",
+      "functionName": "resetPackingS"
+    }]
+  }
+}
