@@ -130,13 +130,7 @@ function resetPackingS()
 
 function resetLabel()
 {
-  var spreadsheet = SpreadsheetApp.getActive();
-  spreadsheet.getRange('B9') .setFormula('=WAYBILL!$J7');
-  spreadsheet.getRange('B10').setFormula('=WAYBILL!$J8');
-  spreadsheet.getRange('B11').setFormula('=WAYBILL!$J9');
-  spreadsheet.getRange('B12').setFormula('=WAYBILL!$J10');
-  spreadsheet.getRange('B13').setFormula('=CONCATENATE("",WAYBILL!$K14)');
-  spreadsheet.getRange('B9').activate();
+  SpreadsheetApp.getActiveSheet().getRange(13, 2, 5).setFormulas([['=WAYBILL!$J7'], ['=WAYBILL!$J8'], ['=WAYBILL!$J9'], ['=WAYBILL!$J10'], ['=IF(ISBLANK(WAYBILL!K14),"","PO# "&WAYBILL!K14)']])
 }
 
 function printPage()
