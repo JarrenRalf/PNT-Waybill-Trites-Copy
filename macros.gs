@@ -91,6 +91,27 @@ function onEdit(e)
     spreadsheet.getRange('WAYBILL!I8').setValue(wb);
 }
 
+function getColumnWidthsAndRowHeights()
+{
+  const sheet = SpreadsheetApp.getActiveSheet();
+  var totalWidth = 0, totalHeight = 0;
+
+  for (var j = 1; j <= sheet.getMaxColumns(); j++)
+  {
+    totalWidth += sheet.getColumnWidth(j);
+    Logger.log('Col ' + j + ': ' + sheet.getColumnWidth(j))
+  }
+    
+  for (var i = 1; i <= sheet.getMaxRows(); i++)
+  {
+    totalHeight += sheet.getRowHeight(i);
+    Logger.log('Row ' + i + ': ' + sheet.getRowHeight(i))
+  }
+  
+  Logger.log('totalWidth: ' + totalWidth)
+  Logger.log('totalHeight: ' + totalHeight)
+}
+
 function saveLabelAddress()
 {
     var spreadsheet = SpreadsheetApp.getActive();
@@ -103,7 +124,6 @@ function saveLabelAddress()
     spreadsheet.getRange('A2').activate();
     spreadsheet.getRange('Labels!B9').activate();
 }
-
 
 function resetPackingS()
 {
@@ -130,7 +150,7 @@ function resetPackingS()
 
 function resetLabel()
 {
-  SpreadsheetApp.getActiveSheet().getRange(13, 2, 5).setFormulas([['=WAYBILL!$J7'], ['=WAYBILL!$J8'], ['=WAYBILL!$J9'], ['=WAYBILL!$J10'], ['=IF(ISBLANK(WAYBILL!K14),"","PO# "&WAYBILL!K14)']])
+  SpreadsheetApp.getActiveSheet().getRange(13, 2, 5).setFormulas([['=WAYBILL!$J7'], ['=WAYBILL!$J8'], ['=WAYBILL!$J9'], ['=WAYBILL!$J10'], ['IF(AND(D20,D21),IF(AND(ISBLANK(WAYBILL!K14),ISBLANK(WAYBILL!F14)),"",IF(ISBLANK(WAYBILL!K14),"ORD# "&WAYBILL!F14,IF(ISBLANK(WAYBILL!F14),"PO# "&WAYBILL!K14,"PO# "&WAYBILL!K14&" ORD# "&WAYBILL!F14))),IF(D20,IF(ISBLANK(WAYBILL!K14),"","PO# "&WAYBILL!K14),IF(D21,IF(ISBLANK(WAYBILL!F14),"","ORD# "&WAYBILL!F14),"")))']])
 }
 
 function printPage()
@@ -192,28 +212,43 @@ function multiPrintPage()
   
   for (var i = 0; i < maxNumLabels; i++)
   {
-    string = poNumber + "     " + pieceName + " #  " + (i + 1).toString() + "  of  " + pieceCount; // Set the text
-    startOffset1 = string.length - pieceCount.toString().length - 6 - (i + 1).toString().length;
-    endOffset1 = startOffset1 + (i + 1).toString().length + 1;
-    startOffset2 = string.length - pieceCount.toString().length;
-    endOffset2 = string.length;
-    richTextValue = SpreadsheetApp.newRichTextValue().setText(string)
-      .setTextStyle(normal).setTextStyle(0, (poNumber.length === 0) ? 5 : poNumber.length, bold1)
-      .setTextStyle(startOffset1, endOffset1, bold2)
-      .setTextStyle(startOffset2, endOffset2, bold2)
-      .build();
-
     if (i % 2 == 0) // If even index (Left Label)
     {
       if (i < pieceCount) // Set the label
+      {
+        string = poNumber + "     " + pieceName + " #  " + (i + 1).toString() + "  of  " + pieceCount; // Set the text
+        startOffset1 = string.length - pieceCount.toString().length - 6 - (i + 1).toString().length;
+        endOffset1 = startOffset1 + (i + 1).toString().length + 1;
+        startOffset2 = string.length - pieceCount.toString().length;
+        endOffset2 = string.length;
+        richTextValue = SpreadsheetApp.newRichTextValue().setText(string)
+          .setTextStyle(normal).setTextStyle(0, (poNumber.length === 0) ? 5 : poNumber.length, bold1)
+          .setTextStyle(startOffset1, endOffset1, bold2)
+          .setTextStyle(startOffset2, endOffset2, bold2)
+          .build();
+
         setLabel(START_ROW +       i/2*LABEL_JUMP + PAGE_JUMP*Math.floor(i/NUM_LABELS_PER_PAGE), LEFT_LABEL, richTextValue);
+      }
       else // Otherwise clear the the black background fill of the horizontal lines
         printSheet.getRange(H_LINE + i/2*LABEL_JUMP + PAGE_JUMP*Math.floor(i/NUM_LABELS_PER_PAGE), LEFT_LABEL).clearFormat();
     }
     else // If odd index (Right Label)
     {
       if (i < pieceCount) // Set the label
+      {
+        string = poNumber + "     " + pieceName + " #  " + (i + 1).toString() + "  of  " + pieceCount; // Set the text
+        startOffset1 = string.length - pieceCount.toString().length - 6 - (i + 1).toString().length;
+        endOffset1 = startOffset1 + (i + 1).toString().length + 1;
+        startOffset2 = string.length - pieceCount.toString().length;
+        endOffset2 = string.length;
+        richTextValue = SpreadsheetApp.newRichTextValue().setText(string)
+          .setTextStyle(normal).setTextStyle(0, (poNumber.length === 0) ? 5 : poNumber.length, bold1)
+          .setTextStyle(startOffset1, endOffset1, bold2)
+          .setTextStyle(startOffset2, endOffset2, bold2)
+          .build();
+
         setLabel(START_ROW + (i - 1)/2*LABEL_JUMP + PAGE_JUMP*Math.floor(i/NUM_LABELS_PER_PAGE), RIGHT_LABEL, richTextValue);
+      }
       else // Otherwise clear the the black background fill of the horizontal lines
         printSheet.getRange(H_LINE + (i - 1)/2*LABEL_JUMP + PAGE_JUMP*Math.floor(i/NUM_LABELS_PER_PAGE), RIGHT_LABEL).clearFormat();
     }
@@ -221,6 +256,67 @@ function multiPrintPage()
   
   // Take the user to the 'Print Label with Piece Count' sheet
   spreadsheet.setActiveSheet(printSheet.activate(), true);
+}
+
+/**
+* This function sets multiple lables to be printed with a line of text that has the piece count on them. 
+*
+* @author Jarren
+*/
+function multiPrintPage_QCL()
+{
+  const spreadsheet = SpreadsheetApp.getActive();
+  const printSheet = spreadsheet.getSheetByName('Print QCL Labels');
+  const  bold1 = SpreadsheetApp.newTextStyle().setFontSize(12).setBold(true).build();
+  const  bold2 = SpreadsheetApp.newTextStyle().setFontSize(15).setBold(true).build();
+  const normal = SpreadsheetApp.newTextStyle().setFontSize(12).setBold(false).build();
+  const   START_ROW =  3;
+  const      H_LINE =  5; // Horizontal Line location which separates the Shipper and Consignee addresses
+  const  LEFT_LABEL =  2;
+  const RIGHT_LABEL =  4;
+  const  LABEL_JUMP = 11; // The vertical translation of a label on the same piece of paper
+  const   PAGE_JUMP =  2; // The vertical translation of the last row of labels to the first row on the next page
+  const  NUM_LABELS_PER_PAGE =  6;
+  const  NUM_ROWS_PRINT_PAGE = 35;
+  const maxNumLabels = printSheet.getMaxRows()/NUM_ROWS_PRINT_PAGE*NUM_LABELS_PER_PAGE;
+  const poAndPieceCount = spreadsheet.getSheetByName('QCL Labels').getSheetValues(8, 4, 7, 3).filter(val => val[0] !== '' && val[2] !== '').map(val => [val[0], val[2]]);
+  var string = "", richTextValue, startOffset1, endOffset1, startOffset2, endOffset2;
+
+  printSheet.getDataRange().clearContent(); // Clear all information on the sheet
+  
+  var i = 0;
+
+  for (var j = 0; j < poAndPieceCount.length; j++)
+  {
+    for (var k = 1; k <= poAndPieceCount[j][1]; k++)
+    {
+      string = "PO# " + poAndPieceCount[j][0] + "                                  Box #  " + k.toString() + "  of  " + poAndPieceCount[j][1]; // Set the text
+      startOffset1 = string.length - poAndPieceCount[j][1].toString().length - 6 - (i + 1).toString().length;
+      endOffset1 = startOffset1 + (i + 1).toString().length + 1;
+      startOffset2 = string.length - poAndPieceCount[j][1].toString().length;
+      endOffset2 = string.length;
+      richTextValue = SpreadsheetApp.newRichTextValue().setText(string)
+        .setTextStyle(normal).setTextStyle(0, (poAndPieceCount[j][0].length === 0) ? 5 : poAndPieceCount[j][0].length + 4, bold1)
+        .setTextStyle(startOffset1, endOffset1, bold2)
+        .setTextStyle(startOffset2, endOffset2, bold2)
+        .build();
+
+      if (i % 2 == 0) // If even index (Left Label)
+        setLabel_QCL(START_ROW + i/2*LABEL_JUMP + PAGE_JUMP*Math.floor(i/NUM_LABELS_PER_PAGE), LEFT_LABEL, richTextValue, printSheet);
+      else
+        setLabel_QCL(START_ROW + (i - 1)/2*LABEL_JUMP + PAGE_JUMP*Math.floor(i/NUM_LABELS_PER_PAGE), RIGHT_LABEL, richTextValue, printSheet);
+
+      i++;
+    }
+  }
+
+  for (var h = i; h < maxNumLabels; h++)
+    if (h % 2 == 0)
+      printSheet.getRange(H_LINE + h/2*LABEL_JUMP + PAGE_JUMP*Math.floor(h/NUM_LABELS_PER_PAGE), LEFT_LABEL).clearFormat();
+    else
+      printSheet.getRange(H_LINE + (h - 1)/2*LABEL_JUMP + PAGE_JUMP*Math.floor(h/NUM_LABELS_PER_PAGE), RIGHT_LABEL).clearFormat();
+  
+  printSheet.getRange(3, 2).activate(); // Take the user to the Print QCL Labels sheet
 }
 
 /**
@@ -249,6 +345,49 @@ function setLabel(row, col, string)
 }
 
 /**
+* This function prints the label with a piece count for Queen Charlotte Lodge.
+*
+* @param {Number}   row     : The row that the label starts at
+* @param {Number}   col     : The column of the label
+* @param {String}  string   : The string representing the piece count and PO number
+* @param {Sheet} printSheet : The sheet that the labels will get printed on
+* @author Jarren Ralf
+*/
+function setLabel_QCL(row, col, string, printSheet)
+{
+  printSheet.getRange(row, col).setFormula("=WAYBILL!B6") // PNT Logo
+    .offset(2, 0, 7).setBackgrounds([ ["black"],
+                                      ["white"],
+                                      ["white"],
+                                      ["white"],
+                                      ["white"],
+                                      ["white"],
+                                      ["white"]])
+      .setVerticalAlignments([["bottom"],
+                              ["bottom"],
+                              ["top"],
+                              ["bottom"],
+                              ["bottom"],
+                              ["bottom"],
+                              ["bottom"]])
+      .setFontWeights([ ["bold"],
+                        ["bold"],
+                        ["normal"],
+                        ["bold"],
+                        ["bold"],
+                        ["bold"],
+                        ["bold"]])
+      .setValues([[""],
+                  [""],
+                  [" ship to:"],
+                  ["    Queen Charlotte Lodge"],
+                  ["    Richmond, BC  V7B 1C3"],
+                  ["    Tel. (604) 420-7197"],
+                  ["    Attn: John Sedo "]])
+    .offset(7, 0, 1, 1).setHorizontalAlignment("right").setRichTextValue(string); // Set the piece count text
+}
+
+/**
 * This function inserts and sets the row heights for additional pages of labels, the number of which is chosen by the user.
 *
 * @param maxNumLabels The maximum number of labels currently on the 'Print Label with Piece Count' page
@@ -265,7 +404,7 @@ function addLabelPages(currentNumLabels, numLabels)
   const           FIRST_ROW =   1;
   const   NUM_ROWS_PER_PAGE =  35;
   const NUM_LABELS_PER_PAGE =   6;
-  const     LAST_ROW_HEIGHT = 100;
+  const     LAST_ROW_HEIGHT =  50;
   const    ARBITRARY_COLUMN =   2;
   
   var currentNumPages = currentNumLabels/NUM_LABELS_PER_PAGE;
