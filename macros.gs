@@ -1,3 +1,16 @@
+/**
+* Simple function to add a menu option to the spreadsheet "Export", for saving a PDF of the spreadsheet directly to Google Drive.
+* The exported file will be named: SheetName and saved in the same folder as the spreadsheet.
+* To change the filename, just set pdfName inside generatePdf() to something else.
+* Running this, sends the currently open sheet, as a PDF attachment
+*/
+function onOpen()
+{
+  SpreadsheetApp.getUi().createMenu('Sort Box #s on Packing Slip').addItem("Sort by Box Numbers", "sortPackingSlipByBoxNumbers").addToUi()
+
+  //SpreadsheetApp.getActiveSpreadsheet().addMenu('Export', [{name:"Save PDF", functionName:"generatePdf"}]) 
+}
+
 function onEdit(e)
 {
   var spreadsheet = SpreadsheetApp.getActive();
@@ -522,6 +535,158 @@ function setRowHeights(rHeights,destRange){
 }
 
 /**
+ * This function rearranges the box numbers of the Packing Slip with Box Numbers sheets.
+ * 
+ * @author ChaptGPT
+ */
+function sortPackingSlipByBoxNumbers()
+{
+  const spreadsheet = SpreadsheetApp.getActive();
+  const numItemsPerPage = 20;
+  const startRow = 18;
+  const startCol = 2;
+  const numCols = 12;
+
+  // --- STEP 1: Determine number of pages ---
+  const pageIndicator = spreadsheet.getSheetByName("Packing Slip with Box Numbers 1").getSheetValues(39, 5, 1, 1)[0][0];
+
+  let totalPages = 1;
+
+  if (pageIndicator && typeof pageIndicator === "string")
+  {
+    const match = pageIndicator.match(/Page\s+\d+\s+of\s+(\d+)/i);
+
+    if (match)
+      totalPages = parseInt(match[1], 10);
+  }
+
+  // --- STEP 2: Pull all data into one array ---
+  let allRows = [];
+
+  for (let page = 1; page <= totalPages; page++)
+  {
+    const range = spreadsheet.getSheetByName(`Packing Slip with Box Numbers ${page}`).getRange(startRow, startCol, numItemsPerPage, numCols);
+
+    // Force text BEFORE reading
+    range.setNumberFormat('@');
+    SpreadsheetApp.flush()
+
+    const data = range.getDisplayValues(); // ← THIS IS THE FIX
+
+    data.forEach(row => allRows.push(row));
+  }
+
+  // --- STEP 3: Separate rows ---
+  let validRows = [];
+  let blankRows = [];
+
+  allRows.forEach(row => {
+
+    const qty = row[0];
+    const desc = row[2];
+
+    const isBlankRow = row.every(cell => cell === "" || cell === null);
+
+    if (isBlankRow) {
+      blankRows.push(row);
+      return;
+    }
+
+    const qtyIsBlank = qty === "" || qty === null;
+    const qtyIsZero = Number(qty) === 0;
+    const descIsBlank = desc === "" || desc === null;
+
+    // ❌ Remove invalid rows
+    if (qtyIsBlank || qtyIsZero || descIsBlank) {
+      return;
+    }
+
+    // ✅ Clean description
+    row[2] = desc.toString().replace(/""+/g, '"');
+
+    validRows.push(row);
+  });
+
+ function parseBox(value) {
+  if (!value) {
+    return { start: Infinity, end: Infinity, type: 3 };
+  }
+
+  const str = value.toString().trim();
+
+  // Normalize spacing
+  const clean = str.replace(/\s+/g, '');
+
+  // Range: "2-4"
+  if (clean.includes('-')) {
+    const [start, end] = clean.split('-').map(x => parseInt(x, 10));
+    return {
+      start: start || Infinity,
+      end: end || start || Infinity,
+      type: 2 // range (lowest priority)
+    };
+  }
+
+  // Comma: "3,4"
+  if (clean.includes(',')) {
+    const nums = clean.split(',').map(x => parseInt(x, 10)).filter(n => !isNaN(n));
+    return {
+      start: Math.min(...nums),
+      end: Math.max(...nums),
+      type: 1 // comma (middle)
+    };
+  }
+
+  // Single: "3"
+  const num = parseInt(clean, 10);
+  return {
+    start: isNaN(num) ? Infinity : num,
+    end: isNaN(num) ? Infinity : num,
+    type: 0 // single (highest priority)
+  };
+}
+
+  // --- STEP 5: Sort ---
+  validRows.sort((a, b) => {
+
+    const A = parseBox(a[numCols - 1]);
+    const B = parseBox(b[numCols - 1]);
+
+    // 1. Start box
+    if (A.start !== B.start)
+      return A.start - B.start;
+
+    // 2. End box (critical for overlaps)
+    if (A.end !== B.end)
+      return A.end - B.end;
+
+    // 3. Type priority: single < comma < range
+    if (A.type !== B.type)
+      return A.type - B.type;
+
+    // 4. Description
+    return (a[2] || "").toString().toLowerCase().localeCompare((b[2] || "").toString().toLowerCase());
+  });
+
+  // --- STEP 6: Combine back ---
+  const finalRows = [...validRows, ...blankRows];
+
+  // Pad if needed
+  const totalSlots = totalPages * numItemsPerPage;
+  while (finalRows.length < totalSlots)
+    finalRows.push(new Array(numCols).fill(""));
+
+  // --- STEP 7: Write back to sheets ---
+  for (let i = 1, index = 0; i <= totalPages; i++) {
+
+    spreadsheet.getSheetByName(`Packing Slip with Box Numbers ${i}`).getRange(startRow, startCol, numItemsPerPage, numCols)
+      .setNumberFormat('@').setValues(finalRows.slice(index, index + numItemsPerPage));
+
+    index += numItemsPerPage;
+  }
+}
+
+/**
  * GET THE ROW HEIGHTS OF A SELECTED RANGE OF A SOURCE SHEET
  * @param {object} range - Selected source range
  * @returns {Array.<number>}  Array of row heights for each row
@@ -539,18 +704,6 @@ function getRowHeights(range) {
    rowHeights.push(rowHeight);
  }
  return rowHeights;
-}
-
-/**
-* Simple function to add a menu option to the spreadsheet "Export", for saving a PDF of the spreadsheet directly to Google Drive.
-* The exported file will be named: SheetName and saved in the same folder as the spreadsheet.
-* To change the filename, just set pdfName inside generatePdf() to something else.
-* Running this, sends the currently open sheet, as a PDF attachment
-*/
-function onOpen()
-{
-  var submenu = [{name:"Save PDF", functionName:"generatePdf"}];
-  SpreadsheetApp.getActiveSpreadsheet().addMenu('Export', submenu);  
 }
 
 /**
